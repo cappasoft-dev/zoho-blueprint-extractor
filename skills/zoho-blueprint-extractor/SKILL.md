@@ -74,6 +74,8 @@ agent-browser --session zoho open "https://crm.zoho.com/crm"
 agent-browser --session zoho wait --load networkidle
 agent-browser --session zoho get url
 ```
+> Sur un **Chrome récent** (chiffrement « App-Bound », Chrome 127+), `grab-zoho-cookie.mjs` peut ne
+> renvoyer aucun cookie exploitable — il le signale explicitement. Passer alors à la **variante B**.
 
 ### Variante B — connexion interactive (si pas de Chrome connecté / cookies absents)
 ```bash
@@ -134,8 +136,8 @@ agent-browser --session zoho wait 2500
 # Extraction (renvoie une string JSON double-encodée)
 agent-browser --session zoho eval --stdin < lib/extract-blueprint.js > /tmp/bp-raw.txt
 
-# Déballer le double-encodage -> JSON propre
-python3 -c "import json,sys; open('/tmp/bp.json','w').write(json.dumps(json.loads(json.loads(open('/tmp/bp-raw.txt').read())),indent=2,ensure_ascii=False))"
+# Déballer le double-encodage -> JSON propre (Node, aucun Python requis)
+node -e "const fs=require('fs');fs.writeFileSync('/tmp/bp.json',JSON.stringify(JSON.parse(JSON.parse(fs.readFileSync('/tmp/bp-raw.txt','utf8'))),null,2))"
 
 # Générer le YAML normalisé (node ; repli python si node absent)
 node   lib/gen-yaml.mjs /tmp/bp.json "./examples/<nom-blueprint>.blueprint.yaml" \
@@ -152,7 +154,9 @@ After (`Webhook`/`Deluge`/`Task`/`Fieldupdate`…) apparaissent quand elles exis
 rm -f /tmp/zoho-real-state.json /tmp/bp-raw.txt /tmp/zoho-verif.png
 agent-browser --session zoho close
 ```
-Garder uniquement les `*.json`/`*.yaml` d'extraction (non sensibles).
+Garder les `*.json`/`*.yaml` d'extraction. ⚠ La sortie peut contenir des **URLs de webhooks**
+(parfois avec jetons), du code **Deluge** ou des configs internes : traite-la comme
+**confidentielle** avant tout partage.
 
 ---
 

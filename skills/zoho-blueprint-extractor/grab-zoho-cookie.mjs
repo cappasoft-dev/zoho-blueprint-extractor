@@ -34,23 +34,39 @@ try {
 const aesKey = pbkdf2Sync(safeStoragePw, "saltysalt", 1003, 16, "sha1");
 const hasControlChars = (s) => /[\x00-\x1f]/.test(s);
 
+let appBoundCount = 0; // cookies « App-Bound » (Chrome 127+) : non déchiffrables via le Trousseau seul
+let undecryptable = 0; // déchiffrement AES ayant produit des octets illisibles
+
 function decrypt(enc) {
   if (!enc || enc.length === 0) return null;
   const buf = Buffer.from(enc);
   const prefix = buf.subarray(0, 3).toString("latin1");
+  // Chrome 127+ : chiffrement « App-Bound » (préfixe v20). La clé n'est plus dérivable
+  // hors du processus Chrome via le Trousseau seul -> indéchiffrable ici.
+  if (prefix === "v20") { appBoundCount++; return null; }
   const payload = prefix === "v10" || prefix === "v11" ? buf.subarray(3) : buf;
   if (payload.length === 0 || payload.length % 16 !== 0) return null;
   const iv = Buffer.alloc(16, 0x20);
   const decipher = createDecipheriv("aes-128-cbc", aesKey, iv);
   decipher.setAutoPadding(false);
-  let out = Buffer.concat([decipher.update(payload), decipher.final()]);
+  let out;
+  try {
+    out = Buffer.concat([decipher.update(payload), decipher.final()]);
+  } catch {
+    undecryptable++;
+    return null;
+  }
   const pad = out[out.length - 1];
   if (pad > 0 && pad <= 16) out = out.subarray(0, out.length - pad);
+  // macOS récents : 32 octets de hash de domaine préfixent la valeur.
   if (out.length > 32) {
     const stripped = out.subarray(32).toString("utf8");
     if (!hasControlChars(stripped)) return stripped;
   }
-  return out.toString("utf8");
+  const plain = out.toString("utf8");
+  // Ne JAMAIS écrire un cookie corrompu : si illisible, on le compte et on l'ignore.
+  if (hasControlChars(plain)) { undecryptable++; return null; }
+  return plain;
 }
 
 // 2) Parcourt les profils Chrome, ramasse tous les cookies *zoho*.
@@ -93,10 +109,23 @@ for (const dbPath of profiles) {
 }
 
 const cookies = [...byKey.values()];
+
+if (appBoundCount > 0)
+  console.error(`~ ${appBoundCount} cookie(s) Zoho en chiffrement « App-Bound » (Chrome 127+) : non déchiffrables via le Trousseau seul.`);
+if (undecryptable > 0)
+  console.error(`~ ${undecryptable} cookie(s) Zoho illisibles après déchiffrement : ignorés.`);
+
 if (cookies.length === 0) {
-  console.error("✗ Aucun cookie zoho trouvé. Es-tu connecté à Zoho dans Chrome ? Quitte Chrome et réessaie.");
+  console.error("✗ Aucun cookie zoho exploitable.");
+  if (appBoundCount > 0)
+    console.error("  Cause probable : Chrome récent (App-Bound Encryption). Utilise la connexion interactive (variante B du SKILL.md).");
+  else
+    console.error("  Es-tu connecté à Zoho dans Chrome ? Quitte Chrome et réessaie, ou utilise la variante B.");
   process.exit(2);
 }
+
+if (profilesWithZoho > 1)
+  console.error(`~ Cookies Zoho présents dans ${profilesWithZoho} profils Chrome : en cas de doublon (même nom/domaine/chemin) le dernier profil l'emporte — vérifie que c'est le bon compte.`);
 
 writeFileSync(OUT, JSON.stringify({ cookies, origins: [] }, null, 2));
 
@@ -105,3 +134,5 @@ const domains = [...new Set(cookies.map((c) => c.domain))].sort();
 console.log(`✓ ${cookies.length} cookies zoho extraits (${profilesWithZoho} profil(s)).`);
 console.log(`  Domaines : ${domains.join(", ")}`);
 console.log(`  Écrit dans : ${OUT}`);
+if (appBoundCount > 0 || undecryptable > 0)
+  console.log(`  ⚠ Si la session échoue ensuite, bascule sur la variante B (login interactif).`);

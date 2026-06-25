@@ -14,7 +14,16 @@ const crit = (details) => {
     typeof x === "string" ? x.toUpperCase()
     : `${x.api_name} ${x.comparator} ${x.value}`).join(" ");
 };
-const q = (s) => '"' + String(s ?? "").replace(/"/g, "'") + '"';
+// Scalaire double-quoté YAML valide : échapper backslash PUIS guillemet, et neutraliser
+// les sauts de ligne/tabulations (sinon un webhook/Deluge contenant `\` ou un retour-ligne
+// casse le YAML).
+const q = (s) =>
+  '"' +
+  String(s ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/"/g, '\\"')
+    .replace(/[\n\r\t]+/g, " ") +
+  '"';
 
 const [, , inp, outp] = process.argv;
 if (!inp || !outp) { console.error("Usage: node lib/gen-yaml.mjs <input.json> <output.yaml>"); process.exit(1); }
@@ -32,7 +41,7 @@ L.push(`  continuous: ${!!p.Continuous}`);
 const fld = p.Field || {};
 L.push(`  state_field: ${q(fld.DisplayLabel || fld.FieldName || fld.ApiName || "Status")}`);
 L.push(`  entry_criteria: ${q(deHtml(p.entry_criteria))}`);
-L.push(`  supported_action_types: ${JSON.stringify(p.supported_action_types || [])}`);
+L.push(`  supported_action_types: [${(p.supported_action_types || []).map(q).join(", ")}]`);
 L.push("");
 L.push("states:");
 for (const name of Object.values(p.states || {})) L.push(`  - ${q(name)}`);

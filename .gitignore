@@ -9,10 +9,16 @@ zoho-real-state.json
 *.har
 bp-raw.txt
 bp.json
+*-verif.png
+*.sqlite
 
 # Node
 node_modules/
 npm-debug.log*
+
+# Python
+__pycache__/
+*.pyc
 
 # OS
 .DS_Store

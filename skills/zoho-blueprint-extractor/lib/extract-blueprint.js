@@ -19,9 +19,28 @@
     return JSON.stringify({ error: "URL non reconnue", org, pid, module, href: location.href });
   }
   const base = `/crm/${org}`;
-  const j = async (u) => (await fetch(u, { credentials: "include" })).json();
+  const j = async (u) => {
+    const r = await fetch(u, { credentials: "include" });
+    const ct = r.headers.get("content-type") || "";
+    const body = await r.text();
+    if (!ct.includes("json")) {
+      // Zoho a renvoyé du HTML (redirection signin / mauvaise page) au lieu de JSON.
+      throw new Error(`réponse non-JSON (HTTP ${r.status}, ${ct.split(";")[0] || "?"})`);
+    }
+    return JSON.parse(body);
+  };
 
-  const pr = await j(`${base}/ProcessFlow.do?action=getProcessDetails&module=${module}&processId=${pid}&toolTip=${module}`);
+  let pr;
+  try {
+    pr = await j(`${base}/ProcessFlow.do?action=getProcessDetails&module=${module}&processId=${pid}&toolTip=${module}`);
+  } catch (e) {
+    return JSON.stringify({
+      error: "getProcessDetails a échoué",
+      detail: String((e && e.message) || e),
+      org, pid, module,
+      hint: "Vérifie que la page courante est l'éditeur du blueprint sur crm.zoho.com et que la session est active.",
+    });
+  }
   const layoutId = (pr.Layout && pr.Layout.Id) || "";
   const states = {};
   (pr.PicklistValues || []).forEach(s => states[s.Id] = s.DisplayValue);

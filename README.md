@@ -5,7 +5,7 @@ Extract any **Zoho CRM Blueprint** into a clean, normalized **YAML** — includi
 An [agent skill](https://skills.sh) (works with Claude Code, Cursor, Codex, OpenCode, and 60+ agents) that drives your **already-logged-in browser session** to read a Blueprint's full definition, then writes it as a state-machine YAML you can hand to another agent or pipeline.
 
 ```bash
-npx skills add ecappa/zoho-blueprint-extractor
+npx skills add cappasoft-dev/zoho-blueprint-extractor
 ```
 
 ---
@@ -41,7 +41,10 @@ transitions:
   - name: "Started"
     from: "Non commencé"
     to: "En cours"
-    before: { owners: [RecordOwner] }
+    common: false
+    automatic: false
+    before:
+      owners: [RecordOwner]
     during:
       - field_validation: "Tasks.Priority equal Highest"
     after: []           # webhooks / Deluge / field updates appear here when present
@@ -63,10 +66,10 @@ The full step-by-step (including an environment preflight) lives in the skill: [
 
 ```bash
 # Install into your agent (Claude Code by default)
-npx skills add ecappa/zoho-blueprint-extractor
+npx skills add cappasoft-dev/zoho-blueprint-extractor
 
 # Or pick the target agent / global install
-npx skills add ecappa/zoho-blueprint-extractor -a claude-code -g
+npx skills add cappasoft-dev/zoho-blueprint-extractor -a claude-code -g
 ```
 
 Then ask your agent to *"extract a Zoho blueprint"* and it will follow the skill: run the preflight, establish the session, list your blueprints, ask which one, and write the YAML.

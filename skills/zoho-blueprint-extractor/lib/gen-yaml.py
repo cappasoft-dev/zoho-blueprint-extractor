@@ -18,12 +18,17 @@ def crit(details):
             parts.append(f"{x.get('api_name')} {x.get('comparator')} {x.get('value')}")
     return " ".join(parts)
 
-def q(s): return '"' + str(s).replace('"', "'") + '"'
+def q(s):
+    # Scalaire double-quoté YAML valide : backslash PUIS guillemet, sauts de ligne neutralisés.
+    s = "" if s is None else str(s)
+    s = s.replace("\\", "\\\\").replace('"', '\\"')
+    s = re.sub(r"[\n\r\t]+", " ", s)
+    return '"' + s + '"'
 
 def main(inp, outp):
     d = json.load(open(inp))
     p = d["process"]; L = []
-    L += ["# Blueprint extrait automatiquement (agent-browser + cookies Chrome).",
+    L += ["# Blueprint extrait automatiquement (agent-browser + cookies / session navigateur).",
           "# Source : endpoints internes ProcessFlow.do + FlowTransition.do.", ""]
     L += ["blueprint:",
           f"  name: {q(p.get('Name'))}",
@@ -33,7 +38,7 @@ def main(inp, outp):
     fld = p.get("Field") or {}
     L.append(f"  state_field: {q(fld.get('DisplayLabel') or fld.get('FieldName') or fld.get('ApiName') or 'Status')}")
     L.append(f"  entry_criteria: {q(deHtml(p.get('entry_criteria')))}")
-    L.append(f"  supported_action_types: {p.get('supported_action_types')}")
+    L.append("  supported_action_types: [" + ", ".join(q(x) for x in (p.get("supported_action_types") or [])) + "]")
     L.append("")
     L.append("states:")
     for name in p.get("states", {}).values():

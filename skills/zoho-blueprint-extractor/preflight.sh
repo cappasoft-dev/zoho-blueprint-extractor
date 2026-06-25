@@ -89,8 +89,10 @@ PATHS=""
 [ "${HAS_AB:-0}" = 1 ] && [ "${COOKIE_OK:-0}" = 1 ] && [ "${HAS_NODE:-0}" = 1 ] && PATHS="A(cookies Chrome)"
 [ "${HAS_AB:-0}" = 1 ] && PATHS="${PATHS:+$PATHS + }B(login interactif headed)"
 
-if [ "$FAIL" -gt 0 ] && [ -z "${PATHS#*B*}" ] && [ "${HAS_AB:-0}" != 1 ]; then
-  echo "✗ Bloqué : agent-browser est indispensable. Corrige les FAIL ci-dessus."
+# agent-browser est la seule dépendance vraiment indispensable : sans lui, aucune voie.
+if [ "${HAS_AB:-0}" != 1 ]; then
+  echo "✗ Bloqué : agent-browser est indispensable."
+  echo "  -> npm i -g agent-browser && agent-browser install, puis relance le preflight."
   exit 1
 fi
 echo "Bilan : $PASS PASS / $WARN WARN / $FAIL FAIL"
