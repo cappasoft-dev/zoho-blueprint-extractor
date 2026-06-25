@@ -11,7 +11,7 @@
 import { DatabaseSync } from "node:sqlite";
 import { execFileSync } from "node:child_process";
 import { pbkdf2Sync, createDecipheriv } from "node:crypto";
-import { copyFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
+import { copyFileSync, writeFileSync, existsSync, readdirSync, unlinkSync, chmodSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
 import { join } from "node:path";
 
@@ -81,27 +81,32 @@ for (const dbPath of profiles) {
   const tmp = join(tmpdir(), `zcookies-${Buffer.from(dbPath).toString("hex").slice(0, 10)}.sqlite`);
   try {
     copyFileSync(dbPath, tmp);
-    const db = new DatabaseSync(tmp, { readOnly: true });
-    const rows = db
-      .prepare("SELECT name, host_key, path, is_secure, is_httponly, encrypted_value, value FROM cookies WHERE host_key LIKE '%zoho%'")
-      .all();
-    db.close();
-    if (rows.length) profilesWithZoho++;
-    for (const r of rows) {
-      const value = r.encrypted_value && r.encrypted_value.length ? decrypt(r.encrypted_value) : r.value;
-      if (value == null || value === "") continue;
-      const domain = r.host_key;
-      const key = `${r.name}|${domain}|${r.path}`;
-      byKey.set(key, {
-        name: r.name,
-        value,
-        domain,
-        path: r.path || "/",
-        expires: YEAR,
-        httpOnly: !!r.is_httponly,
-        secure: !!r.is_secure,
-        sameSite: "Lax",
-      });
+    try {
+      const db = new DatabaseSync(tmp, { readOnly: true });
+      const rows = db
+        .prepare("SELECT name, host_key, path, is_secure, is_httponly, encrypted_value, value FROM cookies WHERE host_key LIKE '%zoho%'")
+        .all();
+      db.close();
+      if (rows.length) profilesWithZoho++;
+      for (const r of rows) {
+        const value = r.encrypted_value && r.encrypted_value.length ? decrypt(r.encrypted_value) : r.value;
+        if (value == null || value === "") continue;
+        const domain = r.host_key;
+        const key = `${r.name}|${domain}|${r.path}`;
+        byKey.set(key, {
+          name: r.name,
+          value,
+          domain,
+          path: r.path || "/",
+          expires: YEAR,
+          httpOnly: !!r.is_httponly,
+          secure: !!r.is_secure,
+          sameSite: "Lax",
+        });
+      }
+    } finally {
+      // Toujours supprimer la copie SQLite temporaire (contient des cookies chiffrés).
+      try { unlinkSync(tmp); } catch {}
     }
   } catch (e) {
     // profil verrouillé ou illisible -> on saute
@@ -127,12 +132,17 @@ if (cookies.length === 0) {
 if (profilesWithZoho > 1)
   console.error(`~ Cookies Zoho présents dans ${profilesWithZoho} profils Chrome : en cas de doublon (même nom/domaine/chemin) le dernier profil l'emporte — vérifie que c'est le bon compte.`);
 
-writeFileSync(OUT, JSON.stringify({ cookies, origins: [] }, null, 2));
+// Cookies de session DÉCHIFFRÉS : restreindre l'accès (0600) dès l'écriture, et
+// re-forcer les perms au cas où le fichier existait déjà avec des perms plus larges.
+writeFileSync(OUT, JSON.stringify({ cookies, origins: [] }, null, 2), { mode: 0o600 });
+try { chmodSync(OUT, 0o600); } catch {}
 
 // Rapport SANS valeurs.
 const domains = [...new Set(cookies.map((c) => c.domain))].sort();
 console.log(`✓ ${cookies.length} cookies zoho extraits (${profilesWithZoho} profil(s)).`);
 console.log(`  Domaines : ${domains.join(", ")}`);
-console.log(`  Écrit dans : ${OUT}`);
+console.log(`  Écrit dans : ${OUT} (perms 0600)`);
 if (appBoundCount > 0 || undecryptable > 0)
   console.log(`  ⚠ Si la session échoue ensuite, bascule sur la variante B (login interactif).`);
+console.error(`⚠ SÉCURITÉ : ${OUT} contient une session Zoho EN CLAIR (cookies d'auth valides).`);
+console.error(`  Supprime-le dès la fin de l'extraction :  rm -f ${OUT}`);

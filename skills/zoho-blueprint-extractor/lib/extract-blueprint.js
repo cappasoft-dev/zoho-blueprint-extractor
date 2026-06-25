@@ -32,7 +32,7 @@
 
   let pr;
   try {
-    pr = await j(`${base}/ProcessFlow.do?action=getProcessDetails&module=${module}&processId=${pid}&toolTip=${module}`);
+    pr = await j(`${base}/ProcessFlow.do?action=getProcessDetails&module=${encodeURIComponent(module)}&processId=${encodeURIComponent(pid)}&toolTip=${encodeURIComponent(module)}`);
   } catch (e) {
     return JSON.stringify({
       error: "getProcessDetails a échoué",
@@ -50,7 +50,7 @@
     const tid = tm.TransitionId;
     let det = {};
     try {
-      det = await j(`${base}/FlowTransition.do?Module=${module}&action=getTransitionDetails&TransitionId=${tid}&LayoutId=${layoutId}`);
+      det = await j(`${base}/FlowTransition.do?Module=${encodeURIComponent(module)}&action=getTransitionDetails&TransitionId=${encodeURIComponent(tid)}&LayoutId=${encodeURIComponent(layoutId)}`);
     } catch (e) { det = { error: String(e) }; }
     const A = det.Actions || {};
     const actionCounts = {};

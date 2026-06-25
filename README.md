@@ -93,6 +93,21 @@ bash skills/zoho-blueprint-extractor/preflight.sh
 - Relies on a **browser session** + occasional OneAuth approval; it is not a headless 24/7 service.
 - Automating access to Zoho's web UI may not align with its Terms of Service in every context. Use on accounts you own or are authorized to work on.
 
+## Security / Privacy
+
+This skill works by reusing a **live, authenticated Zoho session**. Treat it accordingly.
+
+- **Plaintext session on disk.** During use, your Zoho session is written *unencrypted* to `/tmp/zoho-real-state.json`. This file contains **valid authentication cookies** — anyone (or any process) with read access to it can impersonate your Zoho session until those cookies expire.
+- **Restricted permissions.** The session file is written with `0600` permissions (owner read/write only), and permissions are re-applied on each run in case the file already existed with broader access.
+- **Mandatory cleanup.** Delete the session file as soon as the extraction is done:
+
+```bash
+rm -f /tmp/zoho-real-state.json
+```
+
+- **Cookies stay valid until Zoho expires them.** Deleting the local file does **not** revoke the session server-side. If you suspect the file was exposed, log out / invalidate the session in Zoho to force the cookies to expire.
+- **AI agent access.** This skill lets an AI agent **read and use a live, authenticated Zoho session** on your behalf. Only run it with an agent and on an account you trust, and review what the agent does with the session.
+
 ## License
 
 MIT © Eric Cappannelli / Cappasoft
