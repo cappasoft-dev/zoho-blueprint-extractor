@@ -1,0 +1,18 @@
+# Session / secrets — NEVER commit
+*-state.json
+*.session
+.session/
+zoho-real-state.json
+
+# Local extraction outputs / scratch
+/tmp/
+*.har
+bp-raw.txt
+bp.json
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS
+.DS_Store

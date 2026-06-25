@@ -1,0 +1,109 @@
+# ============================================================
+# Blueprint extrait AUTOMATIQUEMENT (exemple)
+# Blueprint Zoho de démonstration — module Tâches
+# Méthode : agent-browser + cookies Chrome (sans clés API)
+#   1) ProcessFlow.do?action=getProcessDetails  -> graphe + états + critère + SLA
+#   2) FlowTransition.do?action=getTransitionDetails -> Before/During/After par transition
+#      (incl. webhooks / Deluge / field updates / tâches — invisibles via l'API publique)
+# ============================================================
+
+blueprint:
+  name: "Task Process Management"
+  module: "Tasks"
+  status: "Active"
+  state_field: "Status"
+  entry_criteria: "Priorité   est   Top Prioritaire, Highest"
+  supported_action_types: ['Fieldupdate', 'SLA', 'Alert', 'Task', 'Webhook', 'Deluge']
+
+states:
+  - "Non commencé"
+  - "Décalé"
+  - "En cours"
+  - "Terminé"
+  - "Attente d’une entrée"
+
+transitions:
+  - name: "Started"
+    from: "Non commencé"
+    to: "En cours"
+    common: false     # transition commune
+    automatic: false
+    before:
+      owners: [RecordOwner]
+    during:
+      - message: "Enter what you plan to do in this task in Notes section for future references.   Also, make sure that task is being set as Highest priority."
+      - field_validation: "Tasks.Priority not_equal High,Low,Lowest,Normal AND Tasks.Priority equal Highest"
+    after:
+      []
+
+  - name: "Mark as complete"
+    from: "En cours"
+    to: "Terminé"
+    common: false     # transition commune
+    automatic: false
+    before:
+      owners: [RecordOwner]
+    during:
+      - message: "Good work completing this task.   Cheers!"
+    after:
+      []
+
+  - name: "Awaiting input"
+    from: "En cours"
+    to: "Attente d’une entrée"
+    common: false     # transition commune
+    automatic: false
+    before:
+      owners: [RecordOwner]
+    during:
+      - message: "Insert reasons in Notes as why this task needs more time.   Also, fill in Due date.  Note: Due date cannot be past dates."
+      - field_validation: "Tasks.Due_Date equal ${TODAY} OR Tasks.Due_Date equal ${TOMORROWPLUS}"
+    after:
+      - type: Task
+        detail: "Reminder task for - ${Tâches.Objet}"
+        dueDate: "Rappel moins 1 jour(s)"
+        remindBefore: "2|10:30 AM|email"
+        priority: "Highest"
+        status: "Waiting on someone else"
+
+  - name: "Do later"
+    from: "En cours"
+    to: "Décalé"
+    common: false     # transition commune
+    automatic: false
+    before:
+      owners: [RecordOwner]
+    during:
+      - message: "Insert reasons in Notes as why this task is being postponed.  And also, fill in Due date.  Note: Due date cannot be greater than 30 days."
+      - field_validation: "Tasks.Due_Date equal ${TOMORROWPLUS} AND Tasks.Due_Date less_equal ${AGE+30}"
+    after:
+      - type: Task
+        detail: "Reminder for deferred task - ${Tâches.Objet}"
+        dueDate: "Rappel moins 1 jour(s)"
+        remindBefore: "3|10:30 AM|email"
+        priority: "Highest"
+        status: "Deferred"
+
+  - name: "Resume"
+    from: "Attente d’une entrée"
+    to: "En cours"
+    common: true     # transition commune
+    automatic: false
+    before:
+      owners: [RecordOwner]
+    during:
+      []
+    after:
+      []
+
+  - name: "Resume"
+    from: "Décalé"
+    to: "En cours"
+    common: false     # transition commune
+    automatic: false
+    before:
+      owners: [RecordOwner]
+    during:
+      []
+    after:
+      []
