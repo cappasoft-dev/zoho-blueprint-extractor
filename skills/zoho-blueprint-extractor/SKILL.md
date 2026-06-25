@@ -154,9 +154,19 @@ agent-browser --session zoho eval --stdin < lib/extract-blueprint.js > /tmp/bp-r
 # Déballer le double-encodage -> JSON propre (Node, aucun Python requis)
 node -e "const fs=require('fs');fs.writeFileSync('/tmp/bp.json',JSON.stringify(JSON.parse(JSON.parse(fs.readFileSync('/tmp/bp-raw.txt','utf8'))),null,2))"
 
+# Détecter le dossier racine du projet de l'utilisateur (exécuter depuis son CWD, PAS depuis le dossier du skill)
+PROJECT_DIR=$(git -C "$OLDPWD" rev-parse --show-toplevel 2>/dev/null || echo "$OLDPWD")
+```
+**Demander à l'utilisateur** où sauvegarder le fichier YAML, en proposant par défaut :
+`$PROJECT_DIR/<nom-blueprint>.blueprint.yaml`
+Attendre sa confirmation ou qu'il fournisse un autre chemin absolu.
+
+```bash
 # Générer le YAML normalisé (node ; repli python si node absent)
-node   lib/gen-yaml.mjs /tmp/bp.json "./examples/<nom-blueprint>.blueprint.yaml" \
-  || python3 lib/gen-yaml.py /tmp/bp.json "./examples/<nom-blueprint>.blueprint.yaml"
+# OUTFILE = chemin absolu choisi/confirmé par l'utilisateur (jamais un chemin relatif)
+OUTFILE="<chemin absolu choisi par l'utilisateur>"
+node   lib/gen-yaml.mjs /tmp/bp.json "$OUTFILE" \
+  || python3 lib/gen-yaml.py /tmp/bp.json "$OUTFILE"
 ```
 
 Vérifier rapidement le résultat : nombre de transitions, états, et que les actions
@@ -166,10 +176,12 @@ After (`Webhook`/`Deluge`/`Task`/`Fieldupdate`…) apparaissent quand elles exis
 
 ## Étape 4 — Nettoyage (obligatoire)
 ```bash
-rm -f /tmp/zoho-real-state.json /tmp/bp-raw.txt /tmp/zoho-verif.png
+# Supprimer UNIQUEMENT les fichiers de session/cookies/intermédiaires — PAS le YAML de sortie
+rm -f /tmp/zoho-real-state.json /tmp/bp-raw.txt /tmp/bp.json /tmp/zoho-verif.png
 agent-browser --session zoho close
 ```
-Garder les `*.json`/`*.yaml` d'extraction. ⚠ La sortie peut contenir des **URLs de webhooks**
+**Conserver** le fichier YAML généré (`$OUTFILE`) — c'est le livrable. Ne jamais le supprimer ici.
+⚠ La sortie peut contenir des **URLs de webhooks**
 (parfois avec jetons), du code **Deluge** ou des configs internes : traite-la comme
 **confidentielle** avant tout partage.
 
