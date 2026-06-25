@@ -26,6 +26,17 @@ deux endpoints internes du CRM. Aucune clé API, aucun Self Client. Le « pourqu
 | 3 | **Extraire** un blueprint (graphe + Before/During/After) | `lib/extract-blueprint.js` |
 | 4 | **Normaliser** en YAML | `lib/gen-yaml.mjs` (node) ou `lib/gen-yaml.py` (repli) |
 
+## Checklist de progression (à recopier dans la réponse)
+Pour une extraction, recopier cette liste et cocher au fur et à mesure :
+```
+Extraction Blueprint :
+- [ ] Étape 0 : Preflight vert (au moins une voie de session)
+- [ ] Étape 1 : Session établie et VÉRIFIÉE (URL crm.zoho.com/crm/org…)
+- [ ] Étape 2 : Blueprints listés, choix de l'utilisateur obtenu
+- [ ] Étape 3 : Extraction + YAML générés, sortie vérifiée (transitions/états/actions)
+- [ ] Étape 4 : Nettoyage des fichiers de session/jetons
+```
+
 ## Étape 0 — Preflight (toujours en premier)
 ```bash
 bash preflight.sh
@@ -35,10 +46,14 @@ le preflight n'est pas vert** (au moins une voie). Si des FAIL apparaissent, dé
 **bootstrap** ci-dessous puis relancer le preflight.
 
 ### Bootstrap (machine vierge) — n'installer que ce qui manque
+> ⚠ **Confirmation requise.** Avant d'exécuter toute installation distante de type
+> `curl … | bash` (ex. nvm ci-dessous) ou toute installation npm globale (`npm i -g …`),
+> l'agent DOIT présenter la commande exacte à l'utilisateur et attendre sa confirmation
+> explicite. Ne jamais lancer ces commandes automatiquement sans accord.
 ```bash
-# Node >= 22 (via nvm, recommandé)
+# Node >= 22 (via nvm, recommandé) — curl|bash : demander confirmation avant d'exécuter
 command -v node || { curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash; . ~/.nvm/nvm.sh; nvm install 22; }
-# agent-browser + son navigateur Chromium
+# agent-browser + son navigateur Chromium — npm i -g : demander confirmation avant d'exécuter
 command -v agent-browser || npm i -g agent-browser
 agent-browser install
 ```
@@ -131,7 +146,7 @@ PID=...        # processId du blueprint
 MOD=Tasks      # module
 agent-browser --session zoho open "https://crm.zoho.com/crm/<ORGID>/settings/blueprint/$PID?module=$MOD"
 agent-browser --session zoho wait --load networkidle
-agent-browser --session zoho wait 2500
+agent-browser --session zoho wait 2500   # ~2,5 s : laisse l'éditeur canvas finir ses XHR internes après networkidle
 
 # Extraction (renvoie une string JSON double-encodée)
 agent-browser --session zoho eval --stdin < lib/extract-blueprint.js > /tmp/bp-raw.txt
