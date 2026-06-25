@@ -1,0 +1,21 @@
+{
+  "name": "zoho-blueprint-extractor",
+  "version": "0.1.0",
+  "description": "Extract any Zoho CRM Blueprint into a clean, normalized YAML — including everything the public API hides.",
+  "license": "MIT",
+  "private": false,
+  "engines": {
+    "node": ">=22"
+  },
+  "keywords": [
+    "zoho",
+    "zoho-crm",
+    "blueprint",
+    "yaml",
+    "agent-skill"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/cappasoft-dev/zoho-blueprint-extractor.git"
+  }
+}
